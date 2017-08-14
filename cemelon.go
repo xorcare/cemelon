@@ -73,8 +73,8 @@ func main() {
 		}
 
 		if jsonDataString == "" {
-			address := "https://blockchain.info/block-height/" + blockIndexStr + "?format=json"
-			jsonDataString, err = FetchUrlByte(address)
+			urlString := "https://blockchain.info/block-height/" + blockIndexStr + "?format=json"
+			jsonDataString, err = FetchUrlByte(urlString)
 			if err != nil {
 				time.Sleep(time.Second)
 				fmt.Fprintln(os.Stderr, time.RFC1123Z, "Block index: ", blockIndexInt, "[Error]", err)
@@ -121,35 +121,35 @@ func main() {
 	}
 }
 
-func FetchUrlByte(url_string string) (json string, err error) {
+func FetchUrlByte(urlString string) (responseBodyString string, err error) {
 	httpClient := &http.Client{Transport: &http.Transport{}}
-	response, err := httpClient.Get(url_string)
+	response, err := httpClient.Get(urlString)
 	defer response.Body.Close()
 	if err != nil {
 		return
 	}
 
 	if response.StatusCode < http.StatusOK || response.StatusCode > http.StatusIMUsed {
-		return json, errors.New("FetchUrlByte: Bad response status code!")
+		return responseBodyString, errors.New("FetchUrlByte: Bad response status code!")
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
+	responseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return
 	}
 
-	json = string(body)
+	responseBodyString = string(responseBody)
 	return
 }
 
-func write2file(fn string, s string) (err error) {
-	f, err := os.OpenFile(fn, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+func write2file(filename string, dataString string) (err error) {
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	defer f.Close()
 	if err != nil {
 		return
 	}
 
-	_, err = fmt.Fprintln(f, s)
+	_, err = fmt.Fprintln(f, dataString)
 	if err != nil {
 		return
 	}
