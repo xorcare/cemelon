@@ -65,7 +65,7 @@ func main() {
 	blockIndexInt = StartBlockIndex
 	for blockIndexInt <= EndBlockIndex {
 		blockIndexStr = strconv.Itoa(blockIndexInt)
-		fmt.Fprintln(os.Stdout, time.RFC1123Z, "Block index: ", blockIndexInt)
+		fmt.Fprintln(os.Stdout, time.Now().UTC().Format(time.RFC1123), "|", "Block index: ", blockIndexInt)
 
 		if prevBlockIndexInt != blockIndexInt {
 			isWritten = map[string]bool{}
@@ -77,7 +77,7 @@ func main() {
 			jsonDataString, err = FetchUrlByte(urlString)
 			if err != nil {
 				time.Sleep(time.Second)
-				fmt.Fprintln(os.Stderr, time.RFC1123Z, "Block index: ", blockIndexInt, "[Error]", err)
+				fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC1123), "|", "Block index: ", blockIndexInt, "[Error]", err)
 				continue
 			}
 		}
@@ -85,12 +85,19 @@ func main() {
 		regex := regexp.MustCompile("\"addr\":\"([13][a-km-zA-HJ-NP-Z1-9]{25,34})\"")
 		addresses := regex.FindAllStringSubmatch(jsonDataString, -1)
 
+		if len(addresses) < 1 {
+			fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC1123), "|", "Not found address, block index:", blockIndexInt)
+			jsonDataString = ""
+			time.Sleep(time.Second * 8)
+			continue
+		}
+
 		isDone = true
 		for j, num := range addresses {
 			if j == 0 && !isWritten[blockIndexStr+"frs"] && !NotCollectFirstAddresses {
 				err := write2file(FirstAddressesInBlockFileName, num[1])
 				if err != nil {
-					fmt.Fprintln(os.Stderr, time.RFC1123Z, "Block index: ", blockIndexInt, "[Error]", err)
+					fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC1123), "|", "Block index: ", blockIndexInt, "[Error]", err)
 					isDone = false
 					break
 				} else {
@@ -106,7 +113,7 @@ func main() {
 			if !isWritten[blockIndexStr+"all"] {
 				err := write2file(AllAddressesInBlockFileName, num[1])
 				if err != nil {
-					fmt.Fprintln(os.Stderr, time.RFC1123Z, "Block index: ", blockIndexInt, "[Error]", err)
+					fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC1123), "|", "Block index: ", blockIndexInt, "[Error]", err)
 					isDone = false
 					break
 				} else {
