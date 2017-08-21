@@ -65,7 +65,7 @@ func main() {
 	blockIndexInt = StartBlockIndex
 	for blockIndexInt <= EndBlockIndex {
 		blockIndexStr = strconv.Itoa(blockIndexInt)
-		fmt.Fprintln(os.Stdout, time.Now().UTC().Format(time.RFC1123), "|", "Block index: ", blockIndexInt)
+		fmt.Fprintln(os.Stdout, nowTime(), "|", "Block index: ", blockIndexInt)
 
 		if prevBlockIndexInt != blockIndexInt {
 			isWritten = map[string]bool{}
@@ -77,7 +77,7 @@ func main() {
 			jsonDataString, err = FetchUrlByte(urlString)
 			if err != nil {
 				time.Sleep(time.Second)
-				fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC1123), "|", "Block index: ", blockIndexInt, "[Error]", err)
+				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 				continue
 			}
 		}
@@ -86,7 +86,7 @@ func main() {
 		addresses := regex.FindAllStringSubmatch(jsonDataString, -1)
 
 		if len(addresses) < 1 {
-			fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC1123), "|", "Not found address, block index:", blockIndexInt)
+			fmt.Fprintln(os.Stderr, nowTime(), "|", "Not found address, block index:", blockIndexInt)
 			jsonDataString = ""
 			time.Sleep(time.Second * 8)
 			continue
@@ -97,7 +97,7 @@ func main() {
 			if j == 0 && !isWritten[blockIndexStr+"frs"] && !NotCollectFirstAddresses {
 				err := write2file(FirstAddressesInBlockFileName, num[1])
 				if err != nil {
-					fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC1123), "|", "Block index: ", blockIndexInt, "[Error]", err)
+					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 					isDone = false
 					break
 				} else {
@@ -113,7 +113,7 @@ func main() {
 			if !isWritten[blockIndexStr+"all"] {
 				err := write2file(AllAddressesInBlockFileName, num[1])
 				if err != nil {
-					fmt.Fprintln(os.Stderr, time.Now().UTC().Format(time.RFC1123), "|", "Block index: ", blockIndexInt, "[Error]", err)
+					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 					isDone = false
 					break
 				} else {
@@ -147,6 +147,10 @@ func FetchUrlByte(urlString string) (responseBodyString string, err error) {
 
 	responseBodyString = string(responseBody)
 	return
+}
+
+func nowTime() string {
+	return time.Now().UTC().Format(time.RFC1123)
 }
 
 func write2file(filename string, dataString string) (err error) {
