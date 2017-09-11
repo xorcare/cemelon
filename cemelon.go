@@ -48,7 +48,7 @@ func init() {
 
 func main() {
 	var (
-		err               error
+		e                 error
 		blockIndexInt     int             = 0
 		blockIndexStr     string          = ""
 		prevBlockIndexInt int             = -1
@@ -74,10 +74,11 @@ func main() {
 
 		if jsonDataString == "" {
 			urlString := "https://blockchain.info/block-height/" + blockIndexStr + "?format=json"
-			jsonDataString, err = FetchUrlByte(urlString)
-			if err != nil {
+			jsonDataString, e = GetDataStringByUrl(urlString)
+			if e != nil {
+				jsonDataString = ""
 				time.Sleep(time.Second)
-				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
+				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", e)
 				continue
 			}
 		}
@@ -95,9 +96,9 @@ func main() {
 		isDone = true
 		for j, num := range addresses {
 			if j == 0 && !isWritten[blockIndexStr+"frs"] && !NotCollectFirstAddresses {
-				err := write2file(FirstAddressesInBlockFileName, num[1])
-				if err != nil {
-					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
+				e = write2file(FirstAddressesInBlockFileName, num[1])
+				if e != nil {
+					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", e)
 					isDone = false
 					break
 				} else {
@@ -111,9 +112,9 @@ func main() {
 			}
 
 			if !isWritten[blockIndexStr+"all"] {
-				err := write2file(AllAddressesInBlockFileName, num[1])
-				if err != nil {
-					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
+				e = write2file(AllAddressesInBlockFileName, num[1])
+				if e != nil {
+					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", e)
 					isDone = false
 					break
 				} else {
@@ -128,24 +129,25 @@ func main() {
 	}
 }
 
-func FetchUrlByte(urlString string) (responseBodyString string, err error) {
-	httpClient := &http.Client{Transport: &http.Transport{}}
-	response, err := httpClient.Get(urlString)
-	defer response.Body.Close()
-	if err != nil {
+func GetDataStringByUrl(url string) (s string, e error) {
+	s = ""
+	c := &http.Client{Transport: &http.Transport{}}
+	response, e := c.Get(url)
+	if e != nil {
 		return
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode < http.StatusOK || response.StatusCode > http.StatusIMUsed {
-		return responseBodyString, errors.New("FetchUrlByte: Bad response status code!")
+		return s, errors.New("GetDataStringByUrl: Bad response status code!")
 	}
 
-	responseBody, err := ioutil.ReadAll(response.Body)
-	if err != nil {
+	responseBody, e := ioutil.ReadAll(response.Body)
+	if e != nil {
 		return
 	}
 
-	responseBodyString = string(responseBody)
+	s = string(responseBody)
 	return
 }
 
@@ -153,15 +155,15 @@ func nowTime() string {
 	return time.Now().UTC().Format(time.RFC1123)
 }
 
-func write2file(filename string, dataString string) (err error) {
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	defer f.Close()
-	if err != nil {
+func write2file(filename string, dataString string) (e error) {
+	f, e := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if e != nil {
 		return
 	}
+	defer f.Close()
 
-	_, err = fmt.Fprintln(f, dataString)
-	if err != nil {
+	_, e = fmt.Fprintln(f, dataString)
+	if e != nil {
 		return
 	}
 	return
