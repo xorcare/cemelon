@@ -12,12 +12,14 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 )
 
 var (
 	StartBlockIndex               int    = -1
 	EndBlockIndex                 int    = -1
+	countStreams                  int    = 1
 	NotCollectFirstAddresses      bool   = false
 	NotCollectAllAddresses        bool   = false
 	FirstAddressesInBlockFileName string = "frs-cemelon-addresses.txt"
@@ -30,6 +32,9 @@ func init() {
 
 	flag.IntVar(&EndBlockIndex, "e", EndBlockIndex,
 		"The block number on which program finished collecting the addresses including this number")
+
+	flag.IntVar(&countStreams, "n", countStreams,
+		"The number of threads downloading data")
 
 	flag.StringVar(&FirstAddressesInBlockFileName, "f", FirstAddressesInBlockFileName,
 		"The name of the file which will be written to the first address in the block")
@@ -47,8 +52,42 @@ func init() {
 }
 
 func main() {
+
+	if EndBlockIndex < 0 || StartBlockIndex < 0 || (EndBlockIndex-StartBlockIndex) < 0 {
+		flag.Usage()
+		os.Exit(0)
+	}
+
+	count := EndBlockIndex - StartBlockIndex
+	step := int(count / countStreams)
+	var wg sync.WaitGroup
+
+	if count > 0 && step > 1 {
+		for i := StartBlockIndex; i <= EndBlockIndex; i += step {
+			end := i + step - 1
+			start := i
+			if end > EndBlockIndex || (EndBlockIndex-end) < step {
+				end = EndBlockIndex
+				i = EndBlockIndex
+			}
+			go worker(&wg, start, end)
+		}
+		time.Sleep(time.Second)
+
+	} else {
+		go worker(&wg, StartBlockIndex, EndBlockIndex)
+	}
+
+	time.Sleep(time.Second)
+	wg.Wait()
+}
+
+func worker(wg *sync.WaitGroup, startIndex, endIndex int) {
+	wg.Add(1)
+	defer wg.Done()
+
 	var (
-		e                 error
+		err               error
 		blockIndexInt     int             = 0
 		blockIndexStr     string          = ""
 		prevBlockIndexInt int             = -1
@@ -57,13 +96,8 @@ func main() {
 		isDone            bool            = true
 	)
 
-	if EndBlockIndex < 0 || StartBlockIndex < 0 {
-		flag.Usage()
-		os.Exit(0)
-	}
-
-	blockIndexInt = StartBlockIndex
-	for blockIndexInt <= EndBlockIndex {
+	blockIndexInt = startIndex
+	for blockIndexInt <= endIndex {
 		blockIndexStr = strconv.Itoa(blockIndexInt)
 		fmt.Fprintln(os.Stdout, nowTime(), "|", "Block index: ", blockIndexInt)
 
@@ -74,11 +108,11 @@ func main() {
 
 		if jsonDataString == "" {
 			urlString := "https://blockchain.info/block-height/" + blockIndexStr + "?format=json"
-			jsonDataString, e = GetDataStringByUrl(urlString)
-			if e != nil {
+			jsonDataString, err = GetDataStringByUrl(urlString)
+			if err != nil {
 				jsonDataString = ""
-				time.Sleep(time.Second)
-				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", e)
+				time.Sleep(time.Second * 10)
+				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 				continue
 			}
 		}
@@ -96,9 +130,9 @@ func main() {
 		isDone = true
 		for j, num := range addresses {
 			if j == 0 && !isWritten[blockIndexStr+"frs"] && !NotCollectFirstAddresses {
-				e = write2file(FirstAddressesInBlockFileName, num[1])
-				if e != nil {
-					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", e)
+				err = write2file(FirstAddressesInBlockFileName, num[1])
+				if err != nil {
+					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 					isDone = false
 					break
 				} else {
@@ -112,9 +146,9 @@ func main() {
 			}
 
 			if !isWritten[blockIndexStr+"all"] {
-				e = write2file(AllAddressesInBlockFileName, num[1])
-				if e != nil {
-					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", e)
+				err = write2file(AllAddressesInBlockFileName, num[1])
+				if err != nil {
+					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 					isDone = false
 					break
 				} else {
