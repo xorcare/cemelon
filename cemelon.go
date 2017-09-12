@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -24,6 +25,7 @@ var (
 	NotCollectAllAddresses        bool   = false
 	FirstAddressesInBlockFileName string = "frs-cemelon-addresses.txt"
 	AllAddressesInBlockFileName   string = "all-cemelon-addresses.txt"
+	RecordingData                 bool   = false
 )
 
 func init() {
@@ -51,8 +53,35 @@ func init() {
 	flag.Parse()
 }
 
-func main() {
+type InformationRecord struct {
+	Filename   string
+	Message    string
+	BlockIndex int
+}
 
+func Write2FileFromChan(cn <-chan InformationRecord) {
+	for {
+		dan := <-cn
+		RecordingData = true
+		for c := 0; c < 64; c++ {
+			err := write2file(dan.Filename, dan.Message)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", dan.BlockIndex, "[Error]", err)
+			} else {
+				c = 64
+			}
+			if c == 62 {
+				log.Fatalln(nowTime(), "|", "Block index: ", dan.BlockIndex, "[Error]", err)
+			}
+		}
+		if len(cn) < 1 {
+			RecordingData = false
+		}
+	}
+
+}
+
+func main() {
 	if EndBlockIndex < 0 || StartBlockIndex < 0 || (EndBlockIndex-StartBlockIndex) < 0 {
 		flag.Usage()
 		os.Exit(0)
@@ -61,6 +90,9 @@ func main() {
 	count := EndBlockIndex - StartBlockIndex
 	step := int(count / countStreams)
 	var wg sync.WaitGroup
+	var writer chan InformationRecord = make(chan InformationRecord, 80*countStreams)
+
+	go Write2FileFromChan(writer)
 
 	if count > 0 && step > 1 {
 		for i := StartBlockIndex; i <= EndBlockIndex; i += step {
@@ -70,19 +102,26 @@ func main() {
 				end = EndBlockIndex
 				i = EndBlockIndex
 			}
-			go worker(&wg, start, end)
+			go worker(&wg, writer, start, end)
 		}
 		time.Sleep(time.Second)
 
 	} else {
-		go worker(&wg, StartBlockIndex, EndBlockIndex)
+		go worker(&wg, writer, StartBlockIndex, EndBlockIndex)
 	}
 
 	time.Sleep(time.Second)
+
 	wg.Wait()
+
+	for RecordingData {
+		time.Sleep(time.Second)
+	}
+
+	time.Sleep(time.Second * 2)
 }
 
-func worker(wg *sync.WaitGroup, startIndex, endIndex int) {
+func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endIndex int) {
 	wg.Add(1)
 	defer wg.Done()
 
@@ -130,14 +169,12 @@ func worker(wg *sync.WaitGroup, startIndex, endIndex int) {
 		isDone = true
 		for j, num := range addresses {
 			if j == 0 && !isWritten[blockIndexStr+"frs"] && !NotCollectFirstAddresses {
-				err = write2file(FirstAddressesInBlockFileName, num[1])
-				if err != nil {
-					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
-					isDone = false
-					break
-				} else {
-					isWritten[blockIndexStr+"frs"] = true
+				cn <- InformationRecord{
+					Filename:   FirstAddressesInBlockFileName,
+					Message:    num[1],
+					BlockIndex: blockIndexInt,
 				}
+				isWritten[blockIndexStr+"frs"] = true
 			}
 
 			if NotCollectAllAddresses {
@@ -145,20 +182,21 @@ func worker(wg *sync.WaitGroup, startIndex, endIndex int) {
 				break
 			}
 
-			if !isWritten[blockIndexStr+"all"] {
-				err = write2file(AllAddressesInBlockFileName, num[1])
-				if err != nil {
-					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
-					isDone = false
-					break
-				} else {
-					isWritten[blockIndexStr+"frs"] = true
+			if !isWritten[num[1]+"all"] {
+				cn <- InformationRecord{
+					Filename:   AllAddressesInBlockFileName,
+					Message:    num[1],
+					BlockIndex: blockIndexInt,
 				}
+				isWritten[num[1]+"all"] = true
 			}
 		}
 
 		if isDone {
 			blockIndexInt++
+			if len(isWritten) > 1000 {
+				isWritten = map[string]bool{}
+			}
 		}
 	}
 }
