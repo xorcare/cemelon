@@ -1,10 +1,8 @@
 # Cemelon
 
-## Description
-
 **The tool collects address used in the bitcoin blockchain!**
 
-## Help
+## Usage of cemelon
 
 ~~~
 Usage of ./cemelon:
@@ -27,4 +25,4 @@ Usage of ./cemelon:
 
 The MIT License (MIT)
 
-Copyright 2017 Vasilyuk Vasiliy <vasilyuk.vasiliy@gmail.com>
+**Copyright 2017 Vasilyuk Vasiliy <vasilyuk.vasiliy@gmail.com>**
