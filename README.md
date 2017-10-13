@@ -25,4 +25,4 @@ Usage of ./cemelon:
 
 The MIT License (MIT)
 
-**Copyright 2017 Vasilyuk Vasiliy <vasilyuk.vasiliy@gmail.com>**
+**Copyright 2017 Vasilyuk Vasiliy <vasilyukvasiliy@gmail.com>**
