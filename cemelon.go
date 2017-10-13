@@ -145,9 +145,9 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 			urlString := "https://blockchain.info/block-height/" + blockIndexStr + "?format=json"
 			jsonDataString, err = GetDataStringByUrl(urlString)
 			if err != nil {
+				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 				jsonDataString = ""
 				time.Sleep(time.Second * 16)
-				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 				continue
 			}
 		}
@@ -158,6 +158,7 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 		if len(addresses) < 1 {
 			fmt.Fprintln(os.Stderr, nowTime(), "|", "Not found address, block index:", blockIndexInt)
 			jsonDataString = ""
+			time.Sleep(time.Second * 16)
 			continue
 		}
 
