@@ -25,7 +25,6 @@ var (
 	NotCollectAllAddresses        bool   = false
 	FirstAddressesInBlockFileName string = "frs-cemelon-addresses.txt"
 	AllAddressesInBlockFileName   string = "all-cemelon-addresses.txt"
-	RecordingData                 bool   = false
 )
 
 func init() {
@@ -59,26 +58,24 @@ type InformationRecord struct {
 	BlockIndex int
 }
 
-func Write2FileFromChan(cn <-chan InformationRecord) {
+func Write2FileFromChan(cn <-chan InformationRecord, wg *sync.WaitGroup) {
 	for {
 		dan := <-cn
-		RecordingData = true
-		for c := 0; c < 64; c++ {
+		wg.Add(1)
+		for counter := 0; counter <= 64; counter++ {
 			err := write2file(dan.Filename, dan.Message)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", dan.BlockIndex, "[Error]", err)
 			} else {
-				c = 64
+				break
 			}
-			if c == 62 {
+			if counter == 64 {
 				log.Fatalln(nowTime(), "|", "Block index: ", dan.BlockIndex, "[Error]", err)
 			}
+			time.Sleep(time.Millisecond)
 		}
-		if len(cn) < 1 {
-			RecordingData = false
-		}
+		wg.Done()
 	}
-
 }
 
 func main() {
@@ -90,9 +87,9 @@ func main() {
 	count := EndBlockIndex - StartBlockIndex
 	step := int(count / countStreams)
 	var wg sync.WaitGroup
-	var writer chan InformationRecord = make(chan InformationRecord, 80*countStreams)
+	var writer chan InformationRecord = make(chan InformationRecord, 32*countStreams)
 
-	go Write2FileFromChan(writer)
+	go Write2FileFromChan(writer, &wg)
 
 	if count > 0 && step > 1 {
 		for i := StartBlockIndex; i <= EndBlockIndex; i += step {
@@ -110,15 +107,14 @@ func main() {
 		go worker(&wg, writer, StartBlockIndex, EndBlockIndex)
 	}
 
-	time.Sleep(time.Second)
+	for {
+		time.Sleep(time.Millisecond)
+		wg.Wait()
 
-	wg.Wait()
-
-	for RecordingData {
-		time.Sleep(time.Second)
+		if len(writer) == 0 {
+			break
+		}
 	}
-
-	time.Sleep(time.Second * 2)
 }
 
 func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endIndex int) {
@@ -150,7 +146,7 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 			jsonDataString, err = GetDataStringByUrl(urlString)
 			if err != nil {
 				jsonDataString = ""
-				time.Sleep(time.Second * 10)
+				time.Sleep(time.Second * 16)
 				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", blockIndexInt, "[Error]", err)
 				continue
 			}
@@ -162,7 +158,6 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 		if len(addresses) < 1 {
 			fmt.Fprintln(os.Stderr, nowTime(), "|", "Not found address, block index:", blockIndexInt)
 			jsonDataString = ""
-			time.Sleep(time.Second * 8)
 			continue
 		}
 
