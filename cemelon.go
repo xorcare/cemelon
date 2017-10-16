@@ -21,10 +21,12 @@ var (
 	StartBlockIndex               int    = -1
 	EndBlockIndex                 int    = -1
 	countStreams                  int    = 1
+	whitenAddressSize             int    = 1000000
 	NotCollectFirstAddresses      bool   = false
 	NotCollectAllAddresses        bool   = false
 	FirstAddressesInBlockFileName string = "frs-cemelon-addresses.txt"
 	AllAddressesInBlockFileName   string = "all-cemelon-addresses.txt"
+	isWhitenAddress               Map
 )
 
 func init() {
@@ -36,6 +38,9 @@ func init() {
 
 	flag.IntVar(&countStreams, "n", countStreams,
 		"The number of threads downloading data")
+
+	flag.IntVar(&whitenAddressSize, "m", whitenAddressSize,
+		"The number of addresses stored in the card to prevent re-entry of addresses")
 
 	flag.StringVar(&FirstAddressesInBlockFileName, "f", FirstAddressesInBlockFileName,
 		"The name of the file which will be written to the first address in the block")
@@ -50,6 +55,44 @@ func init() {
 		"Not to collect all addresses")
 
 	flag.Parse()
+
+	isWhitenAddress = *NewMap()
+}
+
+type Map struct {
+	mx sync.Mutex
+	m  map[string]bool
+}
+
+func (c *Map) Count() int {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	return len(c.m)
+}
+
+func (c *Map) Exist(key string) bool {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	_, ok := c.m[key]
+	return ok
+}
+
+func (c *Map) Store(key string, value bool) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	c.m[key] = value
+}
+
+func (c *Map) Clear() {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	c.m = map[string]bool{}
+}
+
+func NewMap() *Map {
+	return &Map{
+		m: make(map[string]bool),
+	}
 }
 
 type InformationRecord struct {
@@ -113,14 +156,12 @@ func main() {
 			}
 			go worker(&wg, writer, start, end)
 		}
-		time.Sleep(time.Second)
-
 	} else {
 		go worker(&wg, writer, StartBlockIndex, EndBlockIndex)
 	}
 
 	for {
-		time.Sleep(time.Millisecond)
+		time.Sleep(time.Second)
 		wg.Wait()
 
 		if len(writer) == 0 {
@@ -135,12 +176,11 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 
 	var (
 		err               error
-		blockIndexInt     int             = 0
-		blockIndexStr     string          = ""
-		prevBlockIndexInt int             = -1
-		jsonDataString    string          = ""
-		isWritten         map[string]bool = map[string]bool{}
-		isDone            bool            = true
+		blockIndexInt     int    = 0
+		blockIndexStr     string = ""
+		prevBlockIndexInt int    = -1
+		jsonDataString    string = ""
+		isDone            bool   = true
 	)
 
 	blockIndexInt = startIndex
@@ -149,7 +189,6 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 		fmt.Fprintln(os.Stdout, nowTime(), "|", "Block index: ", blockIndexInt)
 
 		if prevBlockIndexInt != blockIndexInt {
-			isWritten = map[string]bool{}
 			jsonDataString = ""
 		}
 
@@ -176,13 +215,13 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 
 		isDone = true
 		for j, num := range addresses {
-			if j == 0 && !isWritten[blockIndexStr+"frs"] && !NotCollectFirstAddresses {
+			if j == 0 && !isWhitenAddress.Exist(blockIndexStr) && !NotCollectFirstAddresses {
 				cn <- InformationRecord{
 					Filename:   FirstAddressesInBlockFileName,
 					Message:    num[1],
 					BlockIndex: blockIndexInt,
 				}
-				isWritten[blockIndexStr+"frs"] = true
+				isWhitenAddress.Store(blockIndexStr, true)
 			}
 
 			if NotCollectAllAddresses {
@@ -190,20 +229,20 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 				break
 			}
 
-			if !isWritten[num[1]+"all"] {
+			if !isWhitenAddress.Exist(num[1]) {
 				cn <- InformationRecord{
 					Filename:   AllAddressesInBlockFileName,
 					Message:    num[1],
 					BlockIndex: blockIndexInt,
 				}
-				isWritten[num[1]+"all"] = true
+				isWhitenAddress.Store(num[1], true)
 			}
 		}
 
 		if isDone {
 			blockIndexInt++
-			if len(isWritten) > 1000 {
-				isWritten = map[string]bool{}
+			if isWhitenAddress.Count() > whitenAddressSize {
+				isWhitenAddress.Clear()
 			}
 		}
 	}
