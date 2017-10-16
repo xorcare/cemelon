@@ -59,11 +59,23 @@ type InformationRecord struct {
 }
 
 func Write2FileFromChan(cn <-chan InformationRecord, wg *sync.WaitGroup) {
+	var files map[string]*os.File = map[string]*os.File{}
+	var err error = nil
 	for {
 		dan := <-cn
 		wg.Add(1)
 		for counter := 0; counter <= 64; counter++ {
-			err := write2file(dan.Filename, dan.Message)
+			if files[dan.Filename] == nil {
+				files[dan.Filename], err =
+					os.OpenFile(dan.Filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+				if err != nil {
+					files[dan.Filename] = nil
+					fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", dan.BlockIndex, "[Error]", err)
+					continue
+				}
+				defer files[dan.Filename].Close()
+			}
+			_, err = fmt.Fprintln(files[dan.Filename], dan.Message)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, nowTime(), "|", "Block index: ", dan.BlockIndex, "[Error]", err)
 			} else {
@@ -221,18 +233,4 @@ func GetDataStringByUrl(url string) (s string, e error) {
 
 func nowTime() string {
 	return time.Now().UTC().Format(time.RFC1123)
-}
-
-func write2file(filename string, dataString string) (e error) {
-	f, e := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if e != nil {
-		return
-	}
-	defer f.Close()
-
-	_, e = fmt.Fprintln(f, dataString)
-	if e != nil {
-		return
-	}
-	return
 }
