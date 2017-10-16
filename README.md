@@ -12,6 +12,8 @@ Usage of ./cemelon:
         The block number on which program finished collecting the addresses including this number (default -1)
   -f string
         The name of the file which will be written to the first address in the block (default "frs-cemelon-addresses.txt")
+  -m int
+        The number of addresses stored in the card to prevent re-entry of addresses (default 1000000)
   -n int
         The number of threads downloading data (default 1)
   -r    Not to collect the first address in the block
