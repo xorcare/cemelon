@@ -22,9 +22,10 @@ Usage of ./cemelon:
   -z    Not to collect all addresses
 ~~~
 
+## Scripts
+
+ * **top100bitcoin-richest.sh** - Allows you to collect top 10,000 richest Bitcoin and Bitcoin Cash addresses
 
 ## License
 
-The MIT License (MIT)
-
-**Copyright 2017 Vasilyuk Vasiliy <vasilyukvasiliy@gmail.com>**
+The MIT License ([MIT](https://git.io/vNI0r))
