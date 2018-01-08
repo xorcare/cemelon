@@ -6,16 +6,14 @@
 
 ~~~
 Usage of ./cemelon:
-  -a string
-        The name of the file which will be used to record all addresses in the block (default "all-cemelon-addresses.txt")
   -e int
         The block number on which program finished collecting the addresses including this number (default -1)
-  -f string
-        The name of the file which will be written to the first address in the block (default "frs-cemelon-addresses.txt")
   -m int
-        The number of addresses stored in the card to prevent re-entry of addresses (default 1000000)
+        The number of addresses stored in the card to prevent re-entry of addresses (default 262144)
   -n int
         The number of threads downloading data (default 1)
+  -o string
+        Output data file base name (default "cemelon.txt")
   -r    Not to collect the first address in the block
   -s int
         The block number at which to start collecting addresses (default -1)

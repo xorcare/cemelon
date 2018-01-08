@@ -9,6 +9,7 @@ import (
     "log"
     "os"
     "strconv"
+    "strings"
     "sync"
     "time"
 
@@ -47,7 +48,7 @@ func init() {
 
 `)
 
-    fmt.Println(os.Args)
+    fmt.Println("Runned:", strings.Join(os.Args, " "))
 
     flag.IntVar(&startBlockIndex, "s", startBlockIndex, "The block number at which to start collecting addresses")
     flag.IntVar(&endBlockIndex, "e", endBlockIndex, "The block number on which program finished collecting the addresses including this number")
@@ -145,7 +146,7 @@ func main() {
     count := endBlockIndex - startBlockIndex
     step := int(count / countStreams)
     var wg sync.WaitGroup
-    chanInformationRecords := make(chan InformationRecord, 32*countStreams)
+    chanInformationRecords := make(chan InformationRecord, 2*countStreams)
 
     go Write2FileFromChan(chanInformationRecords, &wg)
 
