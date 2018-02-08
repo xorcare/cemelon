@@ -10,4 +10,4 @@
 # Project ignore files
 cemelon
 *-cemelon-addresses.txt
-top-10000-richest-*-addresses.txt
+scripts/*.txt
