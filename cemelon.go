@@ -1,7 +1,7 @@
 package main
 
 // The MIT License (MIT)
-// Copyright 2017-2018 Vasilyuk Vasiliy <vasilyukvasiliy@gmail.com>
+// Copyright 2017-2018 Vasiliy Vasilyuk <vasilyukvasiliy@gmail.com>
 
 import (
 	"flag"
@@ -40,7 +40,7 @@ func init() {
 #   #####  ###### #    # ###### ######  ####  #    #  #
 #                                                     #
 #  The MIT License (MIT)                              #
-#  Copyright 2017-2018 Vasilyuk Vasiliy               #
+#  Copyright 2017-2018 Vasiliy Vasilyuk               #
 #  Email: vasilyukvasiliy@gmail.com                   #
 #######################################################
 #            Github: https://git.io/vNIKR             #
