@@ -46,7 +46,7 @@ go get github.com/vasilyukvasiliy/blockchain
 #   #####  ###### #    # ###### ######  ####  #    #  #
 #                                                     #
 #  The MIT License (MIT)                              #
-#  Copyright 2017-2018 Vasiliy Vasilyuk               #
+#  Copyright (с) 2017-2018 Vasiliy Vasilyuk               #
 #  Email: vasilyukvasiliy@gmail.com                   #
 #######################################################
 #            Github: https://git.io/vNIKR             #

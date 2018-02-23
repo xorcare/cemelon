@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# The MIT License (MIT)
+# Copyright (с) 2017-2018 Vasiliy Vasilyuk <vasilyukvasiliy@gmail.com>
+
 RegExp="[13][a-km-zA-HJ-NP-Z1-9]{25,34}"
 RegExpFilter="[13][a-km-zA-HJ-NP-Z1-9]{1,}[A-HJ-NP-Z]{1,}[a-km-zA-HJ-NP-Z1-9]{1,}"
 ServiceAddress="https://blockchain.info/largest-recent-transactions"

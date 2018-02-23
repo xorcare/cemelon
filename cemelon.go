@@ -1,12 +1,13 @@
 package main
 
 // The MIT License (MIT)
-// Copyright 2017-2018 Vasiliy Vasilyuk <vasilyukvasiliy@gmail.com>
+// Copyright (с) 2017-2018 Vasiliy Vasilyuk <vasilyukvasiliy@gmail.com>
 
 import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -23,8 +24,11 @@ var (
 	whitenAddressSize        = 262144
 	notCollectFirstAddresses = false
 	notCollectAllAddresses   = false
+	checkStatusAddress       = false
+	saveOnlyBalanced         = false
 	OutFileBaseName          = "cemelon.txt"
 	isWhitenAddress          Map
+	addressFormat            = "%34s, %s, %16d"
 )
 
 func init() {
@@ -40,7 +44,7 @@ func init() {
 #   #####  ###### #    # ###### ######  ####  #    #  #
 #                                                     #
 #  The MIT License (MIT)                              #
-#  Copyright 2017-2018 Vasiliy Vasilyuk               #
+#  Copyright (с) 2017-2018 Vasiliy Vasilyuk           #
 #  Email: vasilyukvasiliy@gmail.com                   #
 #######################################################
 #            Github: https://git.io/vNIKR             #
@@ -57,25 +61,27 @@ func init() {
 	flag.IntVar(&countStreams, "n", countStreams, "The number of threads downloading data")
 	flag.StringVar(&OutFileBaseName, "o", OutFileBaseName, "Output data file base name")
 	flag.BoolVar(&notCollectAllAddresses, "z", notCollectAllAddresses, "Not to collect all addresses")
+	flag.BoolVar(&checkStatusAddress, "c", checkStatusAddress, "To check the balance of addresses and to hash160")
+	flag.BoolVar(&saveOnlyBalanced, "b", saveOnlyBalanced, "Save only the addresses with a balance")
 	flag.Parse()
 
 	isWhitenAddress = *NewMap()
 }
 
 type Map struct {
-	mx sync.Mutex
+	mx sync.RWMutex
 	m  map[string]bool
 }
 
 func (c *Map) Count() int {
-	c.mx.Lock()
-	defer c.mx.Unlock()
+	c.mx.RLock()
+	defer c.mx.RUnlock()
 	return len(c.m)
 }
 
 func (c *Map) Exist(key string) bool {
-	c.mx.Lock()
-	defer c.mx.Unlock()
+	c.mx.RLock()
+	defer c.mx.RUnlock()
 	_, ok := c.m[key]
 	return ok
 }
@@ -141,6 +147,10 @@ func main() {
 	if endBlockIndex < 0 || startBlockIndex < 0 || (endBlockIndex-startBlockIndex) < 0 {
 		flag.Usage()
 		os.Exit(0)
+	}
+
+	if saveOnlyBalanced {
+		checkStatusAddress = true
 	}
 
 	count := endBlockIndex - startBlockIndex
@@ -235,13 +245,44 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 
 		isDone = true
 		for j, address := range addresses {
-			if j == 0 && !isWhitenAddress.Exist(blockIndexStr) && !notCollectFirstAddresses {
+			isBalanced := false
+			addressFRS := fmt.Sprint("frs", address)
+			if isWhitenAddress.Exist(addressFRS) || isWhitenAddress.Exist(address) || strings.Trim(address, " ") == "" {
+				continue
+			}
+
+			msg := address
+			if checkStatusAddress {
+				msg = fmt.Sprintf(addressFormat, address, "", 0)
+				for i := 0; i < 3; i++ {
+					addr, e := blc.GetAddress(address, map[string]string{"offset": "2147483647"})
+					if e != nil {
+						fmt.Fprintln(os.Stderr, nowTimeRFC1123(), "|", "Could not verify address:", address, "\n", e)
+						time.Sleep(time.Millisecond * time.Duration(1000+rand.Int63n(10000)))
+						continue
+					}
+
+					if addr.FinalBalance != 0 {
+						isBalanced = true
+					}
+
+					msg = fmt.Sprintf(addressFormat, addr.Address, addr.Hash160, addr.FinalBalance)
+
+					break
+				}
+			}
+
+			if saveOnlyBalanced == true && isBalanced == false {
+				continue
+			}
+
+			if j == 0 && !isWhitenAddress.Exist(addressFRS) && !notCollectFirstAddresses {
 				cn <- InformationRecord{
 					Filename:   "frs-" + OutFileBaseName,
-					Message:    address,
+					Message:    msg,
 					BlockIndex: blockIndexInt,
 				}
-				isWhitenAddress.Store(blockIndexStr, true)
+				isWhitenAddress.Store(addressFRS, true)
 			}
 
 			if notCollectAllAddresses {
@@ -252,7 +293,7 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 			if !isWhitenAddress.Exist(address) {
 				cn <- InformationRecord{
 					Filename:   "all-" + OutFileBaseName,
-					Message:    address,
+					Message:    msg,
 					BlockIndex: blockIndexInt,
 				}
 				isWhitenAddress.Store(address, true)
