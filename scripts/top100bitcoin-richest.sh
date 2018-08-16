@@ -1,9 +1,12 @@
 #!/bin/sh
+# Copyright 2017-2018 Vasiliy Vasilyuk. All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
 
 BTC="bitcoin"
 BTH="bitcoin%20cash"
-RegExp="[13][a-km-zA-HJ-NP-Z1-9]{25,34}"
-RegExpFilter="[13][a-km-zA-HJ-NP-Z1-9]{1,}[A-HJ-NP-Z]{1,}[a-km-zA-HJ-NP-Z1-9]{1,}"
+RegExp="[1][a-km-zA-HJ-NP-Z1-9]{25,34}"
+RegExpFilter="[1][a-km-zA-HJ-NP-Z1-9]{1,}[A-HJ-NP-Z]{1,}[a-km-zA-HJ-NP-Z1-9]{1,}"
 
 curl https://bitinfocharts.com/ru/top-100-richest-${BTC}-addresses.html | egrep -o -e "${RegExp}" | egrep -o -e "${RegExpFilter}" | sort -u >> ${BTC}.tmp.txt
 curl https://bitinfocharts.com/ru/top-100-richest-${BTH}-addresses.html | egrep -o -e "${RegExp}" | egrep -o -e "${RegExpFilter}" | sort -u >> ${BTH}.tmp.txt

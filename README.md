@@ -3,11 +3,14 @@
 **The tool collects address used in the bitcoin blockchain!**
 
 ## Usage of cemelon
-
-~~~
-Usage of ./cemelon:
+```text
+Usage of cemelon:
+  -b    Save only the addresses with a balance
+  -c    To check the balance of addresses and to hash160
   -e int
         The block number on which program finished collecting the addresses including this number (default -1)
+  -f string
+        Output data format string (default "%34s, %s, %16d")
   -m int
         The number of addresses stored in the card to prevent re-entry of addresses (default 262144)
   -n int
@@ -18,14 +21,14 @@ Usage of ./cemelon:
   -s int
         The block number at which to start collecting addresses (default -1)
   -z    Not to collect all addresses
-~~~
+```
 
 ## Dependencies
 
 Install go packages:
 
 ```bash
-go get github.com/vasilyukvasiliy/blockchain
+go get github.com/xorcare/blockchain
 ```
 
 ## Scripts
@@ -35,36 +38,23 @@ go get github.com/vasilyukvasiliy/blockchain
 ## Example of the execution log
 
 ```log
-#######################################################
-#                                                     #
-#   #####                                             #
-#  #     # ###### #    # ###### #       ####  #    #  #
-#  #       #      ##  ## #      #      #    # ##   #  #
-#  #       #####  # ## # #####  #      #    # # #  #  #
-#  #       #      #    # #      #      #    # #  # #  #
-#  #     # #      #    # #      #      #    # #   ##  #
-#   #####  ###### #    # ###### ######  ####  #    #  #
-#                                                     #
-#  The MIT License (MIT)                              #
-#  Copyright 2017-2018 Vasiliy Vasilyuk               #
-#  Email: vasilyukvasiliy@gmail.com                   #
-#######################################################
-#            Github: https://git.io/vNIKR             #
-#######################################################
+Program: Cemelon
+Author: Vasiliy Vasilyuk
+Github: https://git.io/fNhcc
+License: BSD 3-Clause "New" or "Revised" License
 
+Runned: cemelon -s 0 -e 10 -n 2 -c -b
+Thu, 16 Aug 2018 19:39:39 UTC | Block index:  5
+Thu, 16 Aug 2018 19:39:39 UTC | Block index:  0
+Thu, 16 Aug 2018 19:39:43 UTC | Block index:  6
+Thu, 16 Aug 2018 19:39:43 UTC | Block index:  1
+Thu, 16 Aug 2018 19:39:43 UTC | Block index:  7
+Thu, 16 Aug 2018 19:39:43 UTC | Block index:  8
+Thu, 16 Aug 2018 19:39:43 UTC | Block index:  2
+Thu, 16 Aug 2018 19:39:44 UTC | Block index:  9
+Thu, 16 Aug 2018 19:39:44 UTC | Block index:  3
+Thu, 16 Aug 2018 19:39:44 UTC | Block index:  4
+Thu, 16 Aug 2018 19:39:44 UTC | Block index:  10
 
-cemelon -s 300000 -e 300010 -n 2
-Mon, 01 Jan 2018 10:31:48 UTC | Block index:  300000
-Mon, 01 Jan 2018 10:31:48 UTC | Block index:  300005
-Mon, 01 Jan 2018 10:31:49 UTC | Block index:  300006
-Mon, 01 Jan 2018 10:31:50 UTC | Block index:  300007
-Mon, 01 Jan 2018 10:31:50 UTC | Block index:  300001
-Mon, 01 Jan 2018 10:31:53 UTC | Block index:  300008
-Mon, 01 Jan 2018 10:31:54 UTC | Block index:  300009
-Mon, 01 Jan 2018 10:31:56 UTC | Block index:  300010
+Process finished with exit code 0
 ```
-
-
-## License
-
-The MIT License ([MIT](https://git.io/vNI0r))

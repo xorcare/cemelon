@@ -1,13 +1,1 @@
-# Default go ignore files
-*.exe
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-.glide/
-
-# Project ignore files
-cemelon
-*-cemelon-addresses.txt
-scripts/*.txt
+*-cemelon.txt

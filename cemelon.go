@@ -1,19 +1,22 @@
-package main
+// Copyright 2017-2018 Vasiliy Vasilyuk. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
-// The MIT License (MIT)
-// Copyright 2017-2018 Vasiliy Vasilyuk <vasilyukvasiliy@gmail.com>
+package main
 
 import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/vasilyukvasiliy/blockchain"
+	"github.com/xorcare/blockchain"
 )
 
 var (
@@ -23,73 +26,65 @@ var (
 	whitenAddressSize        = 262144
 	notCollectFirstAddresses = false
 	notCollectAllAddresses   = false
-	OutFileBaseName          = "cemelon.txt"
+	checkStatusAddress       = false
+	saveOnlyBalanced         = false
+	outFileBaseName          = "cemelon.txt"
 	isWhitenAddress          Map
+	addressFormat            = "%34s, %s, %16d"
 )
 
 func init() {
-	fmt.Println(`
-#######################################################
-#                                                     #
-#   #####                                             #
-#  #     # ###### #    # ###### #       ####  #    #  #
-#  #       #      ##  ## #      #      #    # ##   #  #
-#  #       #####  # ## # #####  #      #    # # #  #  #
-#  #       #      #    # #      #      #    # #  # #  #
-#  #     # #      #    # #      #      #    # #   ##  #
-#   #####  ###### #    # ###### ######  ####  #    #  #
-#                                                     #
-#  The MIT License (MIT)                              #
-#  Copyright 2017-2018 Vasiliy Vasilyuk               #
-#  Email: vasilyukvasiliy@gmail.com                   #
-#######################################################
-#            Github: https://git.io/vNIKR             #
-#######################################################
-
-`)
+	fmt.Println("Program: Cemelon")
+	fmt.Println("Author: Vasiliy Vasilyuk")
+	fmt.Println("Github: https://git.io/fNhcc")
+	fmt.Println("License: BSD 3-Clause \"New\" or \"Revised\" License")
+	fmt.Println()
 
 	fmt.Println("Runned:", strings.Join(os.Args, " "))
-
 	flag.IntVar(&startBlockIndex, "s", startBlockIndex, "The block number at which to start collecting addresses")
 	flag.IntVar(&endBlockIndex, "e", endBlockIndex, "The block number on which program finished collecting the addresses including this number")
 	flag.IntVar(&whitenAddressSize, "m", whitenAddressSize, "The number of addresses stored in the card to prevent re-entry of addresses")
 	flag.BoolVar(&notCollectFirstAddresses, "r", notCollectFirstAddresses, "Not to collect the first address in the block")
 	flag.IntVar(&countStreams, "n", countStreams, "The number of threads downloading data")
-	flag.StringVar(&OutFileBaseName, "o", OutFileBaseName, "Output data file base name")
+	flag.StringVar(&outFileBaseName, "o", outFileBaseName, "Output data file base name")
+	flag.StringVar(&addressFormat, "f", addressFormat, "Output data format string")
 	flag.BoolVar(&notCollectAllAddresses, "z", notCollectAllAddresses, "Not to collect all addresses")
+	flag.BoolVar(&checkStatusAddress, "c", checkStatusAddress, "To check the balance of addresses and to hash160")
+	flag.BoolVar(&saveOnlyBalanced, "b", saveOnlyBalanced, "Save only the addresses with a balance")
 	flag.Parse()
 
 	isWhitenAddress = *NewMap()
 }
 
 type Map struct {
-	mx sync.Mutex
-	m  map[string]bool
+	sync.RWMutex
+	m map[string]bool
 }
 
-func (c *Map) Count() int {
-	c.mx.Lock()
-	defer c.mx.Unlock()
-	return len(c.m)
+func (c *Map) Count() (i int) {
+	c.RLock()
+	i = len(c.m)
+	c.RUnlock()
+	return
 }
 
 func (c *Map) Exist(key string) bool {
-	c.mx.Lock()
-	defer c.mx.Unlock()
+	c.RLock()
 	_, ok := c.m[key]
+	c.RUnlock()
 	return ok
 }
 
 func (c *Map) Store(key string, value bool) {
-	c.mx.Lock()
-	defer c.mx.Unlock()
+	c.Lock()
 	c.m[key] = value
+	c.Unlock()
 }
 
 func (c *Map) Clear() {
-	c.mx.Lock()
-	defer c.mx.Unlock()
+	c.Lock()
 	c.m = map[string]bool{}
+	c.Unlock()
 }
 
 func NewMap() *Map {
@@ -106,22 +101,19 @@ type InformationRecord struct {
 
 func Write2FileFromChan(cn <-chan InformationRecord, wg *sync.WaitGroup) {
 	var files = map[string]*os.File{}
-	var err error = nil
+	var err error
 
 	pid := strconv.Itoa(os.Getpid())
-	for {
-		dan := <-cn
+	for dan := range cn {
 		dan.Filename = pid + "-" + dan.Filename
 		for counter := 0; counter <= 64; counter++ {
 			if files[dan.Filename] == nil {
-				files[dan.Filename], err =
-					os.OpenFile(dan.Filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+				files[dan.Filename], err = os.OpenFile(dan.Filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 				if err != nil {
 					files[dan.Filename] = nil
 					fmt.Fprintln(os.Stderr, nowTimeRFC1123(), "|", "Block index: ", dan.BlockIndex, "[Error]", err)
 					continue
 				}
-				defer files[dan.Filename].Close()
 			}
 			_, err = fmt.Fprintln(files[dan.Filename], dan.Message)
 			if err != nil {
@@ -135,6 +127,11 @@ func Write2FileFromChan(cn <-chan InformationRecord, wg *sync.WaitGroup) {
 			time.Sleep(time.Millisecond)
 		}
 	}
+
+	for _, v := range files {
+		v.Close()
+	}
+	wg.Done()
 }
 
 func main() {
@@ -143,12 +140,17 @@ func main() {
 		os.Exit(0)
 	}
 
+	if saveOnlyBalanced {
+		checkStatusAddress = true
+	}
+
 	count := endBlockIndex - startBlockIndex
 	step := int(count / countStreams)
 	var wg sync.WaitGroup
+	var wg2 sync.WaitGroup
 	chanInformationRecords := make(chan InformationRecord, 2*countStreams)
-
-	go Write2FileFromChan(chanInformationRecords, &wg)
+	wg2.Add(1)
+	go Write2FileFromChan(chanInformationRecords, &wg2)
 
 	if count > 0 && step > 1 {
 		for i := startBlockIndex; i <= endBlockIndex; i += step {
@@ -158,29 +160,21 @@ func main() {
 				end = endBlockIndex
 				i = endBlockIndex
 			}
+			wg.Add(1)
 			go worker(&wg, chanInformationRecords, start, end)
 		}
 	} else {
+		wg.Add(1)
 		go worker(&wg, chanInformationRecords, startBlockIndex, endBlockIndex)
 	}
 
-	time.Sleep(time.Second)
 	wg.Wait()
-
-	for {
-		time.Sleep(time.Second)
-		if len(chanInformationRecords) == 0 {
-			break
-		}
-	}
-
-	time.Sleep(time.Second)
+	close(chanInformationRecords)
+	wg2.Wait()
 }
 
 func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endIndex int) {
-	wg.Add(1)
 	defer wg.Done()
-
 	var block *blockchain.Block = nil
 	var (
 		blockIndexInt     = 0
@@ -190,8 +184,10 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 	)
 
 	blc := blockchain.New()
+	blc.UserAgent = "cemelon"
 	blockIndexInt = startIndex
 	for blockIndexInt <= endIndex {
+		runtime.Gosched()
 		blockIndexStr = strconv.Itoa(blockIndexInt)
 		fmt.Fprintln(os.Stdout, nowTimeRFC1123(), "|", "Block index: ", blockIndexInt)
 
@@ -226,7 +222,7 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 
 		if !isWhitenAddress.Exist(block.Hash) {
 			cn <- InformationRecord{
-				Filename:   "blk-" + OutFileBaseName,
+				Filename:   "blk-" + outFileBaseName,
 				Message:    block.Hash,
 				BlockIndex: blockIndexInt,
 			}
@@ -235,13 +231,44 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 
 		isDone = true
 		for j, address := range addresses {
-			if j == 0 && !isWhitenAddress.Exist(blockIndexStr) && !notCollectFirstAddresses {
+			isBalanced := false
+			addressFRS := fmt.Sprint("frs", address)
+			if isWhitenAddress.Exist(addressFRS) || isWhitenAddress.Exist(address) || strings.Trim(address, " ") == "" {
+				continue
+			}
+
+			msg := address
+			if checkStatusAddress {
+				msg = fmt.Sprintf(addressFormat, address, "", 0)
+				for i := 0; i < 3; i++ {
+					addr, e := blc.GetAddress(address)
+					if e != nil {
+						fmt.Fprintln(os.Stderr, nowTimeRFC1123(), "|", "Could not verify address:", address, "\n", e)
+						time.Sleep(time.Millisecond * time.Duration(1000+rand.Int63n(10000)))
+						continue
+					}
+
+					if addr.FinalBalance != 0 {
+						isBalanced = true
+					}
+
+					msg = fmt.Sprintf(addressFormat, addr.Address, addr.Hash160, addr.FinalBalance)
+
+					break
+				}
+			}
+
+			if saveOnlyBalanced == true && isBalanced == false {
+				continue
+			}
+
+			if j == 0 && !isWhitenAddress.Exist(addressFRS) && !notCollectFirstAddresses {
 				cn <- InformationRecord{
-					Filename:   "frs-" + OutFileBaseName,
-					Message:    address,
+					Filename:   "frs-" + outFileBaseName,
+					Message:    msg,
 					BlockIndex: blockIndexInt,
 				}
-				isWhitenAddress.Store(blockIndexStr, true)
+				isWhitenAddress.Store(addressFRS, true)
 			}
 
 			if notCollectAllAddresses {
@@ -251,8 +278,8 @@ func worker(wg *sync.WaitGroup, cn chan<- InformationRecord, startIndex, endInde
 
 			if !isWhitenAddress.Exist(address) {
 				cn <- InformationRecord{
-					Filename:   "all-" + OutFileBaseName,
-					Message:    address,
+					Filename:   "all-" + outFileBaseName,
+					Message:    msg,
 					BlockIndex: blockIndexInt,
 				}
 				isWhitenAddress.Store(address, true)
